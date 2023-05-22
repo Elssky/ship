@@ -65,7 +65,7 @@ def schedule_ships(ports, ships):
     # Alg1: Sort the ships by their arrival time
     # ships.sort(key=lambda x: x.arrival_time)
     # Alg2: Sort the ships by their stay time
-    ships.sort(key=lambda x: x.stay_time)
+    # ships.sort(key=lambda x: x.stay_time)
     # Alg3: Sort the ships by their draft
     # ships.sort(key=lambda x: x.draft)
     # Alg4: Sort the ships by their width

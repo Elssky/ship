@@ -2,7 +2,7 @@ import random
 import numpy as np
 
 # Define the number of lines of data to generate
-num_lines = 34
+num_lines = 10
 
 # max_width = 0
 # max_water_level = 0
@@ -52,7 +52,7 @@ for i in range(num_lines):
         ships.append([start_time, stay_time, width, water_level])
 ships.sort(key=lambda x: x[0])
 # Open a file for writing
-with open('ships34.txt', 'w') as f:
+with open('ships10.txt', 'w') as f:
     # Generate the data and write it to the file
     num = 0   
     for i in range(num_lines):

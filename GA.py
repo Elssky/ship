@@ -1,4 +1,5 @@
 import random
+from test import sort_list
 
 # Define the data structure of the ship
 class Ship:
@@ -69,10 +70,12 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
         return individual
 
     # Initialize the population
-    population = []
+    population = []    
+    accommodate_ships = get_accommodate_ships(ports, ships)
     for i in range(population_size):
         individual = list(range(1, len(ships) + 1)) + [0] * ( len(ports) - 1)
         random.shuffle(individual)
+        individual = sort_list(individual)
         population.append(individual)
 
     # Evolution
@@ -80,18 +83,29 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
         population = sorted(population, key=lambda x: fitness_function(x))
         if fitness_function(population[0]) == 0:
             return population[0]
+        print(f"Generation {generation}: best Total waiting time = {fitness_function(population[0])}")
         new_population = [population[0]]
-        for i in range(1, population_size):
+        # new_population = []
+        for i in range(0, population_size):
             parent1 = population[random.randint(0, population_size // 2)]
             parent2 = population[random.randint(0, population_size // 2)]
             child = crossover(parent1, parent2)
             child = mutation(child)
+            child = sort_list(child)
             new_population.append(child)
         population = new_population
 
     return population[0]
 
-
+def get_accommodate_ships(ports, ships):
+    accommodate_ships = []
+    for index, port in enumerate(ports):     
+        ships_list = []
+        for ship in ships:
+            if ship.width <= port.width or ship.draft <= port.water_depth:
+                ships_list.append(ship.No)
+        accommodate_ships.append(ships_list)
+    return accommodate_ships 
 
 def read_ships(file_path):
     ships = []
@@ -121,7 +135,7 @@ ports = read_ports('ports.txt')
 ships = read_ships('ships34.txt')
 
 # Run the genetic algorithm
-solution = genetic_algorithm(100, 0.1, 1000, ships, ports)
+solution = genetic_algorithm(100, 0.06, 10000, ships, ports)
 
 # Print the solution
 port_index = 1

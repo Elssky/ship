@@ -1,7 +1,7 @@
 import random
 
 # Define the number of lines of data to generate
-num_lines = 10
+num_lines = 3
 
 # Define the range of values for each data point
 width_range = (10, 50)
