@@ -40,8 +40,8 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
                 continue
             ship = ships[individual[i] - 1]
             port = ports[port_no - 1]
-            # if ship.width > port.width or ship.draft > port.water_depth:
-            #     return float('inf')
+            if ship.width > port.width or ship.draft > port.water_depth:
+                return float('inf')
             if port.available_time > ship.arrival_time:
                 total_waiting_time += port.available_time - ship.arrival_time
             port.available_time = max(ship.arrival_time, port.available_time) + ship.stay_time
@@ -51,8 +51,13 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
 
     def crossover(parent1, parent2):
         child = [-1] * len(parent1)
-        start = random.randint(0, len(parent1) - 1)
-        end = random.randint(start, len(parent1) - 1)
+        zero_indices = [i for i in range(len(parent1)) if parent1[i] == 0]
+        start = random.choice(zero_indices)
+        end = random.choice(zero_indices)
+        if end > start:
+            start, end = end, start
+        # start = random.randint(0, len(parent1) - 1)
+        # end = random.randint(start, len(parent1) - 1)
         child[start:end] = parent1[start:end]
         for i in range(len(parent2)):
             if parent2[i] not in child:
@@ -71,11 +76,27 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
 
     # Initialize the population
     population = []    
-    accommodate_ships = get_accommodate_ships(ports, ships)
+    # accommodate_ships = get_accommodate_ships(ports, ships)
+   
+    
+    available_ports = get_available_ports(ports, ships)
     for i in range(population_size):
-        individual = list(range(1, len(ships) + 1)) + [0] * ( len(ports) - 1)
-        random.shuffle(individual)
+        individual = []
+        accommodate_ships = []
+        for i in range(len(ports)):
+            accommodate_ships.append([])
+        for ship in ships:
+            # for port in ports:
+            #     if(port.No in available_ports[ship.No - 1]):
+            choose_port_No = random.sample(available_ports[ship.No - 1], 1)[0]
+            accommodate_ships[choose_port_No - 1].append(ship.No)
+        for i in range(len(ports)):
+            individual.extend(accommodate_ships[i])
+            individual.append(0)
+            # individual = list(range(1, len(ships) + 1)) + [0] * ( len(ports) - 1)
+            # random.shuffle(individual)
         individual = sort_list(individual)
+        print(fitness_function(individual))
         population.append(individual)
 
     # Evolution
@@ -98,14 +119,25 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
     return population[0]
 
 def get_accommodate_ships(ports, ships):
-    accommodate_ships = []
-    for index, port in enumerate(ports):     
+    accommodate_ships = [] 
+    for port in ports:     
         ships_list = []
         for ship in ships:
-            if ship.width <= port.width or ship.draft <= port.water_depth:
+            if ship.width <= port.width and ship.draft <= port.water_depth:
                 ships_list.append(ship.No)
+
         accommodate_ships.append(ships_list)
     return accommodate_ships 
+
+def get_available_ports(ports, ships):
+    available_ports = []
+    for ship in ships:
+        ports_list = []
+        for port in ports:      
+            if ship.width <= port.width and ship.draft <= port.water_depth:
+                ports_list.append(port.No)
+        available_ports.append(ports_list)
+    return available_ports 
 
 def read_ships(file_path):
     ships = []
@@ -135,7 +167,7 @@ ports = read_ports('ports.txt')
 ships = read_ships('ships34.txt')
 
 # Run the genetic algorithm
-solution = genetic_algorithm(100, 0.06, 10000, ships, ports)
+solution = genetic_algorithm(100, 0.06, 1000, ships, ports)
 
 # Print the solution
 port_index = 1

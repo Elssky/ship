@@ -18,7 +18,7 @@ def sort_list(lst):
 
 lst = random.sample(range(50), 9)
 result = [0 if i in lst else random.randint(1, 100) for i in range(50)]
-print(result)
-print(sort_list(result))
+# print(result)
+# print(sort_list(result))
 
 

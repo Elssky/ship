@@ -1,5 +1,5 @@
 import math
-import sys
+import sys, time
 from draw import draw_schedule, draw_schedule_3d
 from draw_water import generate_water_depths
 from scipy.optimize import minimize_scalar
@@ -91,7 +91,7 @@ def schedule_ships(ports, ships):
             # Calculate the waiting time of the ship
             start_time, end_time, my_waiting_time[i] = calculate_waiting_time(ship, chosen_port)
             # print(start_time, end_time)
-            print('ship ', ship.No,'->', 'port', chosen_port.No, ' waiting_time: ', my_waiting_time[i])
+            # print('ship ', ship.No,'->', 'port', chosen_port.No, ' waiting_time: ', my_waiting_time[i])
             #  重复计算
             # Update the total waiting time
             my_total_waiting_time += my_waiting_time[i]
@@ -123,12 +123,12 @@ def schedule_ships_by_staytime(ports, ships, max_iterations):
         # Iterate through the ships
         for i in range(len(ships)-1):
             # Check if the stay time of ship i+1 is longer than ship i
-            if ships[i+1].stay_time > ships[i].stay_time:
+            if ships[i+1].stay_time < ships[i].stay_time:
                 # Swap the positions of ship i and ship i+1
                 ships[i], ships[i+1] = ships[i+1], ships[i]
                 # Call the schedule_ships() function recursively to solve
                 new_waiting_time, new_total_waiting_time, new_schedule = schedule_ships(ports, ships)
-                print("waiting time:", new_total_waiting_time)
+                # print("iteration:", iteration, ", waiting time:", new_total_waiting_time)
                 # If the total time is shortened, record the relevant configuration information
                 if new_total_waiting_time < total_waiting_time:
                     total_waiting_time = new_total_waiting_time
@@ -137,13 +137,14 @@ def schedule_ships_by_staytime(ports, ships, max_iterations):
                     end_flag = 0
                     # print("waiting time:", new_total_waiting_time)
                 # If the result does not improve, terminate the algorithm
-                else:
-                    # ships[i], ships[i+1] = ships[i+1], ships[i]
-                    end_flag += 1
-                    # If continuous 10 iterations did not improve total_waiting_time
-                    if end_flag == 20:
-                        return waiting_time, total_waiting_time, schedule
+                # else:
+                #     # ships[i], ships[i+1] = ships[i+1], ships[i]
+                #     end_flag += 1
+                #     # If continuous 10 iterations did not improve total_waiting_time
+                #     if end_flag == 100:
+                #         return waiting_time, total_waiting_time, schedule
         # Update the iteration counter
+        print("iteration:", iteration, ", waiting time:", new_total_waiting_time)
         iteration += 1
     # Return the waiting time and the total waiting time
     return waiting_time, total_waiting_time, schedule
@@ -199,13 +200,13 @@ def print_ships(ships):
     # Define the main function to test the correctness of the scheduling function
 def main():
     ports = read_ports('ports.txt')
-    ships = read_ships('ships34.txt')  
+    ships = read_ships('ships45.txt')  
 
 
     # print_ships(ships)
     # Schedule the ships and get the waiting time and the total waiting time
-    # waiting_time, total_waiting_time, schedule = schedule_ships_by_staytime(ports, ships, 100)
-    waiting_time, total_waiting_time, schedule = schedule_ships(ports, ships)
+    waiting_time, total_waiting_time, schedule = schedule_ships_by_staytime(ports, ships, 1000)
+    # waiting_time, total_waiting_time, schedule = schedule_ships(ports, ships)
     # draw_waiting_time(ports, ships, waiting_time)
     # Print the waiting time and the total waiting time
     # print("Waiting time:", waiting_time)
@@ -227,6 +228,12 @@ amplitude = 5
 period = 1440
 
 # Call the main function
-main()
+if __name__ == '__main__':
+    
+    start_time = time.time() # Record the start time
+    main()   
+    end_time = time.time() # Record the end time
+    elapsed_time = end_time - start_time # Calculate the elapsed time
+    print(f"Elapsed time: {elapsed_time} seconds")
 
 
