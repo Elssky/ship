@@ -1,7 +1,15 @@
 import random
 from test import sort_list
+import os.path
 from greedy_alg import schedule_ships
 import time
+import matplotlib.pyplot as plt
+import matplotlib
+from draw import draw_schedule
+import multiprocessing
+import concurrent.futures
+import itertools
+import pickle
 
 # Define the data structure of the ship
 class Ship:
@@ -23,20 +31,44 @@ class Port:
  
 
 best_waiting_time = 0
+best_waiting_time_list = []
+
+def fitness_function(individual):
+        global best_waiting_time
+        total_waiting_time = 0
+        sorted_ships =  [ships[i - 1] for i in individual]
+        # for i in range(len(individual)):
+        #     temp_ships.append(ships[individual[i] - 1])
+        waiting_time, total_waiting_time,_, schedule = schedule_ships(ports, sorted_ships)
+        if total_waiting_time < best_waiting_time:
+            best_waiting_time = total_waiting_time
+        return total_waiting_time
+
+def calculate_waiting_time(ships):
+    total_waiting_time = 0
+    previous_departure_time = 0
+    for ship in ships:
+        waiting_time = max(0, previous_departure_time - ship.arrival_time)
+        ship_start_time = ship.arrival_time + waiting_time
+        total_waiting_time += waiting_time
+        previous_departure_time = ship_start_time + ship.stay_time
+    return total_waiting_time
+
+def calculate_waiting_time_in_one_port(port_schedule, ships):
+    ships_in_port = [ships[i[0]-1] for i in port_schedule]
+    permutations = itertools.permutations(ships_in_port)
+    min_waiting_time = float('inf')
+    best_permutation = None
+    for perm in permutations:
+        waiting_time = calculate_waiting_time(list(perm))
+        if waiting_time < min_waiting_time:
+            min_waiting_time = waiting_time
+            best_permutation = list(perm)
+    return best_permutation, min_waiting_time
 
 # Define the genetic algorithm function
 def genetic_algorithm(population_size, mutation_rate, max_generations, ships, ports):
     
-    def fitness_function(individual):
-        global best_waiting_time
-        total_waiting_time = 0
-        temp_ships = []
-        for i in range(len(individual)):
-            temp_ships.append(ships[individual[i] - 1])
-        waiting_time, total_waiting_time, schedule = schedule_ships(ports, temp_ships)
-        if total_waiting_time < best_waiting_time:
-            best_waiting_time = total_waiting_time
-        return total_waiting_time
 
     def crossover(parent1, parent2):
         child = [-1] * len(parent1)
@@ -58,33 +90,70 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
                 individual[i], individual[j] = individual[j], individual[i]
         return individual
 
+    if os.path.isfile('population.pkl'):
+        with open('population.pkl', 'rb') as f:
+            population = pickle.load(f)
+    else:
     # Initialize the population
-    population = []    
-    for i in range(population_size):
-        individual = list(range(1, len(ships) + 1)) 
-        random.shuffle(individual)
-        # individual = sort_list(individual)
-        print(fitness_function(individual))
-        population.append(individual)
+        population = []    
+        for i in range(population_size):
+            individual = list(range(1, len(ships) + 1)) 
+            random.shuffle(individual)
+            # individual = sort_list(individual)
+            # print(fitness_function(individual))
+            population.append(individual)
+        with open('population.pkl', 'wb') as f:
+            pickle.dump(population, f)
 
     # Evolution
     end_flag = 0
     record_time = 0
+    best_individual = []
     for generation in range(max_generations):
+        # Parallelize the calculation of the fitness function
+        # with multiprocessing.Pool(processes=16) as pool:
+        #     order = pool.map(fitness_function, population)
+
+        # population = [x for _, x in sorted(zip(order, population), key=lambda x: x[0])]
+        # population = sorted(population, key=lambda x: pool.map(fitness_function, population))
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     # 并行计算每个元素的fitness_function
+        #     fitness_values = list(executor.map(fitness_function, population))
+        # population = [x for _, x in sorted(zip(fitness_values, population))]
         population = sorted(population, key=lambda x: fitness_function(x))
         if fitness_function(population[0]) == 0:
             return population[0]
         print(f"Generation {generation}: best Total waiting time = {fitness_function(population[0])}")
-        
+        best_waiting_time_list.append(fitness_function(population[0]))
         
         if(fitness_function(population[0]) == record_time):
             end_flag += 1
-            if(end_flag == 100):
+            if(end_flag == 50):
                 return record_time
         else:
             end_flag = 0
 
-        record_time = fitness_function(population[0])     
+        record_time = fitness_function(population[0])    
+
+        # if(best_individual != population[0]):
+        #     best_individual = population[0]
+
+        #     # Save the corresponding schedule
+        #     temp_ships = []
+        #     for i in range(len(best_individual)):
+        #         temp_ships.append(ships[best_individual[i] - 1])
+        #     _, _, _, best_schedule = schedule_ships(ports, temp_ships)
+            
+        #     time = 0
+        #     # print(type(best_schedule))
+        #     for i, value in best_schedule.items():
+        #         port_schedule = value
+        #         # print(f"Port {i}:")
+        #         best_permutation, min_waiting_time = calculate_waiting_time_in_one_port(port_schedule, ships)
+        #         # print(f"Best permutation: {best_permutation}")
+        #         time += min_waiting_time
+        #         # print(f"Minimum waiting time: {min_waiting_time}")
+        #     print(f"waiting time: {time}")
         new_population = [population[0]]
         
         # new_population = []
@@ -96,6 +165,25 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
             # child = sort_list(child)
             new_population.append(child)
         population = new_population
+
+    best_individual = population[0]
+
+    # Save the corresponding schedule
+    temp_ships = []
+    for i in range(len(best_individual)):
+        temp_ships.append(ships[best_individual[i] - 1])
+    _, _, _, best_schedule = schedule_ships(ports, temp_ships)
+    
+    time = 0
+    # print(type(best_schedule))
+    for i, value in best_schedule.items():
+        port_schedule = value
+        # print(f"Port {i}:")
+        best_permutation, min_waiting_time = calculate_waiting_time_in_one_port(port_schedule, ships)
+        # print(f"Best permutation: {best_permutation}")
+        time += min_waiting_time
+        # print(f"Minimum waiting time: {min_waiting_time}")
+    print(f"waiting time: {time}")
 
     return population[0]
 
@@ -143,17 +231,47 @@ def read_ports(file_path):
 # ships = [Ship(1, 10, 5, 20, 5), Ship(2, 20, 3, 15, 4), Ship(3, 30, 4, 18, 6)]
 # ports = [Port(1, 30, 10), Port(2, 25, 8), Port(3, 20, 6)]
 
+ports = read_ports('ports10.txt')
+ships = read_ships('ships34.txt')
 
-ports = read_ports('ports.txt')
-ships = read_ships('ships45.txt')
+if __name__ == '__main__':
+    
 
-start_time = time.time() # Record the start time
-# Run the genetic algorithm
-solution = genetic_algorithm(20, 0.04, 1000, ships, ports)
+    start_time = time.time() # Record the start time
+    # Run the genetic algorithm
+    solution = genetic_algorithm(20, 0.04, 100, ships, ports)
+    solution_ships = []
+    for i in range(len(solution)):
+        solution_ships.append(ships[solution[i] - 1])
 
-end_time = time.time() # Record the end time
-elapsed_time = end_time - start_time # Calculate the elapsed time
-print(f"Elapsed time: {elapsed_time} seconds")
+    waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships(ports, solution_ships)
+    print(f"total_waiting_time:{total_waiting_time}" )
+    print(f"total_working_time:{total_working_time}" )
+
+    initial_depths = [port.water_depth for port in ports]
+
+    # Define water_level changes
+    amplitude = 5
+    period = 1440
+
+
+
+
+
+    end_time = time.time() # Record the end time
+    elapsed_time = end_time - start_time # Calculate the elapsed time
+    print(f"Elapsed time: {elapsed_time} seconds")
+
+    draw_schedule(initial_depths, schedule,  amplitude, period, ships, ports)
+
+    matplotlib.use('Agg')
+
+    plt.plot(best_waiting_time_list)
+    plt.xlabel('Generation')
+    plt.ylabel('Best Total Waiting Time')
+    plt.title('Genetic Algorithm Performance')
+    plt.savefig('best_waiting_time.pdf')
+    plt.show()
 
 # # Print the solution
 # port_index = 1
@@ -178,5 +296,5 @@ print(f"Elapsed time: {elapsed_time} seconds")
 #         print(f" Ship {ships[solution[i] - 1].No}, waiting time {waiting_time}")
 
 
-print(f"Total waiting time: {best_waiting_time}")
+# print(f"Total waiting time: {best_waiting_time}")
 # print(f"Total waiting time: {total_waiting_time}")

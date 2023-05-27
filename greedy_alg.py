@@ -67,12 +67,16 @@ def schedule_ships(ports, ships):
     # Alg2: Sort the ships by their stay time
     # ships.sort(key=lambda x: x.stay_time)
     # Alg3: Sort the ships by their draft
-    # ships.sort(key=lambda x: x.draft)
+    # ships.sort(key=lambda x: x.draft, reverse=True)
+    
     # Alg4: Sort the ships by their width
-    # ships.sort(key=lambda x: x.width)
+    # ships.sort(key=lambda x: x.width, reverse=True)
     # Initialize the waiting time and the total waiting time
     my_waiting_time = [0] * len(ships)
     my_total_waiting_time = 0
+    my_total_working_time = 0
+    # total_start_time = sys.maxsize
+    # total_end_time = 0
     # Repeated calls require initialization ports
     for port in ports:
         port.available_time = 0
@@ -90,34 +94,38 @@ def schedule_ships(ports, ships):
             chosen_port = min(available_ports, key=lambda x: x.available_time)
             # Calculate the waiting time of the ship
             start_time, end_time, my_waiting_time[i] = calculate_waiting_time(ship, chosen_port)
+            # total_start_time = min(start_time, total_start_time)
+            # total_end_time = max(end_time, total_end_time)
             # print(start_time, end_time)
             # print('ship ', ship.No,'->', 'port', chosen_port.No, ' waiting_time: ', my_waiting_time[i])
             #  重复计算
             # Update the total waiting time
             my_total_waiting_time += my_waiting_time[i]
-            schedule[chosen_port.No].append([start_time, end_time])
+            schedule[chosen_port.No].append([ship.No, start_time, end_time])
+            my_total_working_time += end_time - ship.arrival_time
         else:
             # If no available port is found, the ship has to wait
             # print('ship ', ship.No, 'There are no available ports')
+            print(ship.No)
             my_waiting_time[i] = float('inf')
   
   
     # Return the waiting time and the total waiting time
-    return my_waiting_time, my_total_waiting_time, schedule
+    return my_waiting_time, my_total_waiting_time, my_total_working_time, schedule
 
 def schedule_ships_by_staytime(ports, ships, max_iterations):
     # Alg1: Sort the ships by their arrival time
     ships.sort(key=lambda x: x.arrival_time)
     # Initialize the waiting time and the total waiting time
     waiting_time = [0] * len(ships)
-    _,total_waiting_time,_ = schedule_ships(ports, ships)
+    _,total_waiting_time,_,schedule = schedule_ships(ports, ships)
     # total_waiting_time = sys.maxsize
-    # Initialize the schedule dictionary
-    schedule = {port.No: [] for port in ports}
     # Initialize the iteration counter
     iteration = 0
     # Mark how many iterations did not improve total_waiting_time
     end_flag = 0
+
+    total_working_time = 0
     # Iterate until the maximum number of iterations is reached or the result does not improve
     while iteration < max_iterations:
         # Iterate through the ships
@@ -127,11 +135,12 @@ def schedule_ships_by_staytime(ports, ships, max_iterations):
                 # Swap the positions of ship i and ship i+1
                 ships[i], ships[i+1] = ships[i+1], ships[i]
                 # Call the schedule_ships() function recursively to solve
-                new_waiting_time, new_total_waiting_time, new_schedule = schedule_ships(ports, ships)
+                new_waiting_time, new_total_waiting_time, new_total_working_time, new_schedule = schedule_ships(ports, ships)
                 # print("iteration:", iteration, ", waiting time:", new_total_waiting_time)
                 # If the total time is shortened, record the relevant configuration information
                 if new_total_waiting_time < total_waiting_time:
                     total_waiting_time = new_total_waiting_time
+                    total_working_time = new_total_working_time
                     schedule = new_schedule
                     waiting_time = new_waiting_time
                     end_flag = 0
@@ -147,7 +156,7 @@ def schedule_ships_by_staytime(ports, ships, max_iterations):
         print("iteration:", iteration, ", waiting time:", new_total_waiting_time)
         iteration += 1
     # Return the waiting time and the total waiting time
-    return waiting_time, total_waiting_time, schedule
+    return waiting_time, total_waiting_time, total_working_time, schedule
 
 
 def draw_waiting_time(ports, ships, waiting_time):
@@ -199,28 +208,40 @@ def print_ships(ships):
 
     # Define the main function to test the correctness of the scheduling function
 def main():
-    ports = read_ports('ports.txt')
-    ships = read_ships('ships45.txt')  
+    ports = read_ports('ports10.txt')
+    ships = read_ships('ships34.txt')  
 
-
+    start_time = time.time() # Record the start time
     # print_ships(ships)
     # Schedule the ships and get the waiting time and the total waiting time
-    waiting_time, total_waiting_time, schedule = schedule_ships_by_staytime(ports, ships, 1000)
-    # waiting_time, total_waiting_time, schedule = schedule_ships(ports, ships)
+    # waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships_by_staytime(ports, ships, 50)
+    
+    waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships(ports, ships)
     # draw_waiting_time(ports, ships, waiting_time)
     # Print the waiting time and the total waiting time
     # print("Waiting time:", waiting_time)
     #ports = list(schedule.keys())
 
     initial_depths = [port.water_depth for port in ports]
+    print(schedule)
 
-    # draw_schedule(initial_depths, schedule,  amplitude, period)
-    #initial_depths = {port.No: port.water_depth for port in ports}
+    # schedule = {1: [[3, 73, 840], [25, 840, 1598], [33, 1598, 2127]], 2: [], 3: [[8, 121, 739], [24, 739, 1467], [29, 1467, 2114]], 4: [[22, 291, 641]], 5: [[9, 143, 844]], 6: [[2, 30, 808]], 7: [[10, 144, 611], [19, 611, 984], [27, 984, 1311], [28, 1311, 1715], [31, 1715, 2559]], 8: [[5, 75, 1009], [18, 1009, 2102], [32, 2102, 2900]], 9: [[16, 226, 856], [26, 856, 1574], [30, 1574, 2162]], 10: [[14, 211, 1190], [17, 1190, 2753]]}
+
     
-    #generate_water_depths(initial_depths, schedule)
-    #draw_schedule_3d(schedule, initial_depths, amplitude, period)
-    print("Total waiting time:", total_waiting_time)
+    initial_depths = {port.No: port.water_depth for port in ports}
+    
+    # generate_water_depths(initial_depths, schedule)
+    # draw_schedule_3d(schedule, initial_depths, amplitude, period)
+    # print("Total waiting time:", total_waiting_time)
+    print(f"total_waiting_time:{total_waiting_time}" )
+    print(f"total_working_time:{total_working_time}" )
     # print(schedule )
+
+    end_time = time.time() # Record the end time
+    elapsed_time = end_time - start_time # Calculate the elapsed time
+    print(f"Elapsed time: {elapsed_time} seconds")
+    ships.sort(key=lambda x: x.arrival_time)
+    draw_schedule(initial_depths, schedule,  amplitude, period, ships, ports)
     
 
 # Define water_level changes
@@ -230,10 +251,8 @@ period = 1440
 # Call the main function
 if __name__ == '__main__':
     
-    start_time = time.time() # Record the start time
+    
     main()   
-    end_time = time.time() # Record the end time
-    elapsed_time = end_time - start_time # Calculate the elapsed time
-    print(f"Elapsed time: {elapsed_time} seconds")
+   
 
 

@@ -3,31 +3,75 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import math
 
-def draw_schedule(initial_depths, schedule, amplitude, period):
+def draw_schedule(initial_depths, schedule, amplitude, period, ships, ports):
+    # Set the font size to 16
+    font_size = 20
 
-    ports = list(schedule.keys())
-    max_time = int(1.1 * max([max(schedule[port][:][-1], default=0) for port in ports if len(schedule[port]) != 0]))
+    # ports_index = list(schedule.keys())
+    max_time = int(1.1 * max([max(schedule[port.No][:][-1], default=0) for port in ports if len(schedule[port.No]) != 0]))
     fig, ax = plt.subplots(figsize=(10, 5))
-    y_ticks = range(len(ports))
+    y_ticks = [0]
+    hlines = []
+    sum_len = 0
+    for i, port in enumerate(ports):
+        if(i == 0):
+            hlines.append(sum_len + ports[i].width/2)
+            sum_len += (ports[i].width + ports[i + 1].width)/2
+            y_ticks.append(sum_len)
+            
+            
+        elif(i == len(ports) - 1):
+            # y_ticks.append(port.width/2)
+            continue
+        else:
+            hlines.append(sum_len + ports[i].width/2)
+            sum_len += (port.width + ports[i + 1].width)/2
+            y_ticks.append(sum_len)
+       
+    
+    max_interval = max([port.width for port in ports])
+    y_ticks = [i/ max_interval * 1.8  for i in y_ticks]
+    hlines = [i/ max_interval * 1.8  for i in hlines]
+    
+    # y_ticks /= min(y_ticks) * 2.5        
+
+    # y_ticks = [0, 2, 7, 12]
+    # y_ticks = range(len(ports))
+    ax.set_ylim([y_ticks[0] - ports[0].width/2/max_interval * 1.8, y_ticks[-1] + ports[-1].width/2/max_interval * 1.8])
+    
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels(ports)
+    
+    ax.set_yticklabels([port.No for port in ports])
     ax.invert_yaxis()
     ax.xaxis.grid(True)
-    ax.set_xlabel('Time')
-    ax.set_ylabel('Port Number')
+    ax.set_xlabel('Time(mins)', fontsize=font_size)
+    ax.set_ylabel('Port Number', fontsize=font_size)
+    # ax.set_title('Schedule of Ships')
     ax.set_xlim([0, max_time])
-   
+    average_width = sum([port.width for port in ports]) / len(ports)
+    min_width = min([port.width for port in ports])
+    # widths = [0.5, 1, 2] # list of widths for each bar
     for i, port in enumerate(ports):
-        for j in range(len(schedule[port])):
-            start_time = schedule[port][j][0]
-            end_time = schedule[port][j][1]
-            ax.barh(i, end_time - start_time, left=start_time, height=0.5, align='center', color='lightslategrey', alpha=0.8)
-            ax.vlines(x=start_time, ymin=i-0.25, ymax=i+0.25, color='black', linewidth=2)
-            ax.vlines(x=end_time, ymin=i-0.25, ymax=i+0.25, color='black', linewidth=2)
-        ax.axhline(y=i+0.5, color='black', linewidth=2)
+        for j in range(len(schedule[port.No])):
+            start_time = schedule[port.No][j][1]
+            end_time = schedule[port.No][j][2]
+            # bar_width = widths[j]
+            ship_num = schedule[port.No][j][0]
+            barh_width = ships[ship_num - 1].width/ max_interval * 1.8
+    
+            ax.barh(y_ticks[i], end_time - start_time, left=start_time, height=barh_width, align='center', color='white', alpha=0.8)
+            ax.vlines(x=start_time, ymin=y_ticks[i]-barh_width/2, ymax=y_ticks[i]+barh_width/2, color='black', linewidth=2)
+            ax.vlines(x=end_time, ymin=y_ticks[i]-barh_width/2, ymax=y_ticks[i]+barh_width/2, color='black', linewidth=2)
+            ax.axhline(xmin=start_time/max_time, xmax=end_time/max_time, y=y_ticks[i]+barh_width/2, color='black', linewidth=2)
+            ax.axhline(xmin=start_time/max_time, xmax=end_time/max_time, y=y_ticks[i]-barh_width/2, color='black', linewidth=2)
+            
+            ax.text(start_time + (end_time - start_time)/2, y_ticks[i], ship_num, ha='center', va='center', color='black',  fontsize=font_size)
+        if(i < len(ports) - 1):
+            ax.axhline(y= hlines[i] , color='black', linewidth=2, linestyle='--')
 
     # Define the function for the water depth at each port over time
     def water_depth(initial_depth, time, amplitude, period):
+         initial_depth = 0
          return initial_depth + amplitude *  np.sin(2 * math.pi * time / period)
 
     time = np.arange(max_time+1)
@@ -35,8 +79,11 @@ def draw_schedule(initial_depths, schedule, amplitude, period):
      # Create a list of water depths for each port over time
     water_depths = [water_depth(depth, time, amplitude, period) for depth in initial_depths]
 
-    plt.imshow(water_depths, cmap='Blues', aspect='auto')
+    plt.imshow(water_depths, extent=[0, max_time+1, y_ticks[-1] + ports[-1].width/2/max_interval * 1.8,y_ticks[0] - ports[0].width/2/max_interval * 1.8], cmap='Blues', aspect='auto')
     plt.colorbar()
+    # plt.ylim([y_ticks[0] - ports[0].width/2/max_interval * 1.8, y_ticks[-1] + ports[-1].width/2/max_interval * 1.8])
+    plt.xticks(fontsize=font_size)
+    plt.yticks(fontsize=font_size)
     
     plt.savefig("../schedule.pdf")
     plt.show()

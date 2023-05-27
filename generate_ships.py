@@ -2,7 +2,7 @@ import random
 import numpy as np
 
 # Define the number of lines of data to generate
-num_lines = 10
+num_lines = 12
 
 # max_width = 0
 # max_water_level = 0
@@ -19,13 +19,13 @@ num_lines = 10
 # Define the three classes of ships
 class1_width_range = (8, 21)
 class1_stay_time_range = (5*60, 15*60)
-class1_water_level_range = (3, 7)
+class1_water_level_range = (3, 5)
 class2_width_range = (21, 30)
 class2_stay_time_range = (15*60, 30*60)
-class2_water_level_range = (8, 13)
+class2_water_level_range = (5, 8)
 class3_width_range = (30, 40)
 class3_stay_time_range = (50*60, 65*60)
-class3_water_level_range = (14, 20)
+class3_water_level_range = (8, 13)
 
 ships = []
 for i in range(num_lines):
@@ -48,11 +48,21 @@ for i in range(num_lines):
         width = random.randint(*width_range)
         stay_time = random.randrange(*stay_time_range)
         water_level = random.randint(*water_level_range)
-        start_time = int(np.random.exponential(300))
+        start_time = int(np.random.exponential(240))
         ships.append([start_time, stay_time, width, water_level])
+# def read_ships(file_path):
+#     ships = []
+#     with open(file_path, 'r') as f:
+#         for line in f:
+#             ship_info = line.strip().split(',')
+#             ship = [int(ship_info[1]), int(ship_info[2]), int(ship_info[3]), int(ship_info[4])]
+#             ships.append(ship)
+#     return ships
+
+# ships = read_ships('ships45.txt')  
 ships.sort(key=lambda x: x[0])
 # Open a file for writing
-with open('ships10.txt', 'w') as f:
+with open('ships12.txt', 'w') as f:
     # Generate the data and write it to the file
     num = 0   
     for i in range(num_lines):
