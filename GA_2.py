@@ -270,6 +270,7 @@ if __name__ == '__main__':
     plt.xlabel('Generation')
     plt.ylabel('Best Total Waiting Time')
     plt.title('Genetic Algorithm Performance')
+    plt.tight_layout()
     plt.savefig('best_waiting_time.pdf')
     plt.show()
 
