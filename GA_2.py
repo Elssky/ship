@@ -232,7 +232,7 @@ def read_ports(file_path):
 # ports = [Port(1, 30, 10), Port(2, 25, 8), Port(3, 20, 6)]
 
 ports = read_ports('ports10.txt')
-ships = read_ships('ships34.txt')
+ships = read_ships('ships45.txt')
 
 if __name__ == '__main__':
     
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     plt.xlabel('Generation')
     plt.ylabel('Best Total Waiting Time')
     plt.title('Genetic Algorithm Performance')
-    plt.tight_layout()
+    
     plt.savefig('best_waiting_time.pdf')
     plt.show()
 

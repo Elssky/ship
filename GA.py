@@ -5,6 +5,7 @@ from greedy_alg import schedule_ships
 import time
 import matplotlib.pyplot as plt
 import matplotlib
+import math
 from matplotlib import ticker
 from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
 from draw import draw_schedule
@@ -12,6 +13,7 @@ import multiprocessing
 import concurrent.futures
 import itertools
 import pickle
+import sys
 
 # Define the data structure of the ship
 class Ship:
@@ -21,6 +23,7 @@ class Ship:
         self.stay_time = stay_time
         self.width = width
         self.draft = draft
+        self.priority = 0
 
 # Define the data structure of the port
 class Port:
@@ -32,43 +35,80 @@ class Port:
 
  
 
-best_waiting_time = 0
+best_waiting_time = sys.maxsize
 best_waiting_time_list = []
+best_working_time = sys.maxsize
+
+
+# 目标函数计算水位变化   
+def f(x):
+    return amplitude * math.sin(2 * math.pi * x / period)
 
 def fitness_function(individual):
         global best_waiting_time
+        global best_working_time
         total_waiting_time = 0
-        sorted_ships = [x for _, x in sorted(zip(individual[0], ships), key=lambda x: x[0])]
+        total_working_time = 0
+        # sorted_ships = [x for _, x in sorted(zip(individual[0], ships), key=lambda x: x[0])]
+        for ship in ships:
+            ship.priority = individual[1][ship.No - 1]
         schedule = {port.No: [] for port in ports}
+
+
         for i in range(len(individual[1])):
             schedule[individual[1][i]].append(i + 1)
+        # print(individual)
+        # print(schedule)
 
-        for port_schedule in schedule.values():
-            waiting_time = calculate_waiting_time_in_one_port(port_schedule, sorted_ships)
+        for port_no, port_schedule in schedule.items():
+            # print(f'port_no{port_no}')
+            waiting_time, working_time = calculate_waiting_time_in_one_port(port_schedule, ships, port_no)
+            total_working_time += working_time
             total_waiting_time += waiting_time
+        if(best_waiting_time > total_waiting_time):
+            best_waiting_time = total_waiting_time
+            best_working_time = total_working_time
         return total_waiting_time
 
-def calculate_waiting_time(ships):
+def calculate_waiting_time(ships_in, port):
     total_waiting_time = 0
     previous_departure_time = 0
-    for ship in ships:
+    
+    working_time = 0
+    for ship in ships_in:
         waiting_time = max(0, previous_departure_time - ship.arrival_time)
         ship_start_time = ship.arrival_time + waiting_time
+        while(f(ship_start_time) < ship.draft - port.water_depth):
+            # if ship_start_time > 100000:
+            #     print("here")
+            ship_start_time += 30
         total_waiting_time += waiting_time
         previous_departure_time = ship_start_time + ship.stay_time
-    return total_waiting_time
+        while(f(previous_departure_time) < ship.draft - port.water_depth):
+            # if previous_departure_time > 100000:
+            #     print("there")
+            previous_departure_time += 30
+            total_waiting_time += 30
+        # working_time += start_time - previous_departure_time
+    return total_waiting_time, working_time
 
-def calculate_waiting_time_in_one_port(port_schedule, ships):
+def calculate_waiting_time_in_one_port(port_schedule, ships, port_no):
+    # print(port_schedule)
     ships_in_port = [ships[i-1] for i in port_schedule]
-    waiting_time = calculate_waiting_time(ships_in_port)
-    return waiting_time
+    ships_in_port = sorted(ships_in_port, key=lambda x:x.priority)
+    port = ports[port_no - 1]
+    # print(port.No)
+    waiting_time, working_time = calculate_waiting_time(ships_in_port, port)
+    return waiting_time, working_time
 
 
 
+available_ports = []
 
 # Define the genetic algorithm function
 def genetic_algorithm(population_size, mutation_rate, max_generations, ships, ports):
     
+    global available_ports 
     available_ports = get_available_ports(ports, ships)
 
     def crossover(parent1, parent2):
@@ -119,8 +159,8 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
         # individual = sort_list(individual)
         # print(fitness_function(individual))
         population.append(individual)
-    with open('population1.pkl', 'wb') as f:
-        pickle.dump(population, f)
+    # with open('population1.pkl', 'wb') as f:
+    #     pickle.dump(population, f)
 
     
    
@@ -193,17 +233,18 @@ def get_available_ports(ports, ships):
     for ship in ships:
         ports_list = []
         for port in ports:      
-            if ship.width <= port.width and ship.draft <= port.water_depth:
+            if ship.width <= port.width  and ship.draft <= port.water_depth + amplitude * 0.8:
                 ports_list.append(port.No)
         available_ports.append(ports_list)
     return available_ports 
+
 
 def read_ships(file_path):
     ships = []
     with open(file_path, 'r') as f:
         for line in f:
             ship_info = line.strip().split(',')
-            ship = Ship(int(ship_info[0]), int(ship_info[1]), int(ship_info[2]), int(ship_info[3]), int(ship_info[4]))
+            ship = Ship(int(ship_info[0]), int(ship_info[1]), int(ship_info[2]), float(ship_info[3]), float(ship_info[4]))
             ships.append(ship)
     return ships
 
@@ -212,7 +253,7 @@ def read_ports(file_path):
     with open(file_path, 'r') as f:
         for line in f:
             port_info = line.strip().split(',')
-            port = Port(int(port_info[0]), int(port_info[1]), int(port_info[2]))
+            port = Port(int(port_info[0]), float(port_info[1]), float(port_info[2]))
             ports.append(port)
     return ports
 
@@ -221,8 +262,16 @@ def read_ports(file_path):
 # ships = [Ship(1, 10, 5, 20, 5), Ship(2, 20, 3, 15, 4), Ship(3, 30, 4, 18, 6)]
 # ports = [Port(1, 30, 10), Port(2, 25, 8), Port(3, 20, 6)]
 
-ports = read_ports('ports10.txt')
-ships = read_ships('ships88.txt')
+# 人工数据集
+# ports = read_ports('ports10.txt')
+# ships = read_ships('ships34.txt')
+#实际数据集
+ports = read_ports('real_port.txt')
+ships = read_ships('real_ship.txt') 
+
+# Define water_level changes
+amplitude = 2
+period = 1440
 
 if __name__ == '__main__':
     
@@ -234,7 +283,8 @@ if __name__ == '__main__':
     end_time = time.time() # Record the end time
     elapsed_time = end_time - start_time # Calculate the elapsed time
     print(f"Elapsed time: {elapsed_time} seconds")
-
+    print(f"best_waiting_time:{best_waiting_time}" )
+    print(f"best_working_time:{best_working_time}" )
     # solution_ships = []
     schedule = {port.No: [] for port in ports}
     # # Iterate through the ships
@@ -264,18 +314,18 @@ if __name__ == '__main__':
             port.available_time = end_time
             schedule[i][j].append(start_time)
             schedule[i][j].append(end_time)
+            if (end_time - start_time != ship.stay_time):
+                print(ship.No)
     
     print(schedule)
         
 
     initial_depths = [port.water_depth for port in ports]
 
-    # Define water_level changes
-    amplitude = 5
-    period = 1440
+   
 
 
-    # draw_schedule(initial_depths, schedule,  amplitude, period, ships, ports)
+    draw_schedule(initial_depths, schedule,  amplitude, period, ships, ports)
 
     # matplotlib.use('SVG')
     

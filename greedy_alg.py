@@ -7,6 +7,8 @@ from pyecharts.charts import Bar
 from pyecharts.charts import HeatMap
 from pyecharts import options as opts
 
+
+
 # Define the data structure of the ship
 class Ship:
     def __init__(self, No, arrival_time, stay_time, width, draft):
@@ -35,15 +37,26 @@ def calculate_waiting_time(ship, port):
     # Calculate the water level of the port at the time the ship arrives
     # water_level = port.water_depth + amplitude * math.sin(2 * math.pi * time / period)
     # If the ship can dock at the port immediately, return 0
+    waiting_time = 0
     if port.width >= ship.width and port.water_depth >= ship.draft:   
         # Calculate the time when the ship can start to dock
-        start_time = max(ship.arrival_time, port.available_time)
+        start_time = max(ship.arrival_time, port.available_time) 
+        while(f(start_time) < ship.draft - port.water_depth):
+            start_time += 30
+            # change_depth = ship.draft - port.water_depth
+            # reg_change_depth = change_depth / amplitude
+            # time = math.asin(reg_change_depth) * period / (2 * math.pi)
+            # start_time = 1
+
         # Calculate the time when the ship can leave the port
         end_time = start_time + ship.stay_time
+        while(f(end_time) < ship.draft - port.water_depth):
+            end_time += 30
+            waiting_time += 30
         # Update the available time of the port
         port.available_time = end_time
         # Return the waiting time
-        return start_time, end_time, start_time - ship.arrival_time
+        return start_time, end_time, start_time - ship.arrival_time + waiting_time
     else:
         return float('inf')
 
@@ -70,7 +83,7 @@ def schedule_ships(ports, ships):
     # ships.sort(key=lambda x: x.draft, reverse=True)
     
     # Alg4: Sort the ships by their width
-    # ships.sort(key=lambda x: x.width, reverse=True)
+    ships.sort(key=lambda x: x.width, reverse=True)
     # Initialize the waiting time and the total waiting time
     my_waiting_time = [0] * len(ships)
     my_total_waiting_time = 0
@@ -88,7 +101,7 @@ def schedule_ships(ports, ships):
         # Find the first available port that the ship can dock at
         # available_ports = [port for port in ports if port.available_time <= ship.arrival_time]
         available_ports = [port for port in ports if port.width >= ship.width and port.water_depth >= ship.draft]
-        available_ports = [port for port in available_ports if is_waterlevel_satisfy(ship, port)]
+        # available_ports = [port for port in available_ports if is_waterlevel_satisfy(ship, port)]
         if available_ports:
             # Choose the port with the smallest waiting time
             chosen_port = min(available_ports, key=lambda x: x.available_time)
@@ -181,7 +194,7 @@ def read_ships(file_path):
     with open(file_path, 'r') as f:
         for line in f:
             ship_info = line.strip().split(',')
-            ship = Ship(int(ship_info[0]), int(ship_info[1]), int(ship_info[2]), int(ship_info[3]), int(ship_info[4]))
+            ship = Ship(int(ship_info[0]), int(ship_info[1]), int(ship_info[2]), float(ship_info[3]), float(ship_info[4]))
             ships.append(ship)
     return ships
 
@@ -190,7 +203,7 @@ def read_ports(file_path):
     with open(file_path, 'r') as f:
         for line in f:
             port_info = line.strip().split(',')
-            port = Port(int(port_info[0]), int(port_info[1]), int(port_info[2]))
+            port = Port(int(port_info[0]), float(port_info[1]), float(port_info[2]))
             ports.append(port)
     return ports
 
@@ -205,11 +218,19 @@ def print_ships(ships):
     for ship in ships:
         print('{:<10}{:<15}{:<15}{:<10}{:<10}'.format(ship.No, ship.arrival_time, ship.stay_time, ship.width, ship.draft))
 
+# 船只的长度与泊位长度的比例通常被称为"泊位利用率"或"船长倍率"。
+# 这个比例是船舶进入泊位时的一个重要考虑因素，以确保船只可以安全地停靠在泊位上。
+Berth_utilization = 1.2
 
     # Define the main function to test the correctness of the scheduling function
 def main():
+
+    # 人工数据集
     ports = read_ports('ports10.txt')
-    ships = read_ships('ships34.txt')  
+    ships = read_ships('ships34.txt')
+    #实际数据集
+    # ports = read_ports('real_port.txt')
+    # ships = read_ships('real_ship.txt')   
 
     start_time = time.time() # Record the start time
     # print_ships(ships)
@@ -224,6 +245,8 @@ def main():
 
     initial_depths = [port.water_depth for port in ports]
     print(schedule)
+
+    
 
     # schedule = {1: [[3, 73, 840], [25, 840, 1598], [33, 1598, 2127]], 2: [], 3: [[8, 121, 739], [24, 739, 1467], [29, 1467, 2114]], 4: [[22, 291, 641]], 5: [[9, 143, 844]], 6: [[2, 30, 808]], 7: [[10, 144, 611], [19, 611, 984], [27, 984, 1311], [28, 1311, 1715], [31, 1715, 2559]], 8: [[5, 75, 1009], [18, 1009, 2102], [32, 2102, 2900]], 9: [[16, 226, 856], [26, 856, 1574], [30, 1574, 2162]], 10: [[14, 211, 1190], [17, 1190, 2753]]}
 
@@ -242,10 +265,33 @@ def main():
     print(f"Elapsed time: {elapsed_time} seconds")
     ships.sort(key=lambda x: x.arrival_time)
     draw_schedule(initial_depths, schedule,  amplitude, period, ships, ports)
+
+    # Iterate through the schedule dictionary and write the result to a text file
+    with open('schedule_result.txt', 'w') as f:
+        # f.write("船舶编号, 泊位, 靠泊时间, 离港时间\n")
+        for port_no, ship_list in schedule.items():
+            for ship_info in ship_list:
+                ship_no, start_time, end_time = ship_info
+                start_month = 11
+                end_month = 11
+                start_day = start_time // 1440 + 28
+                if start_day >= 31:
+                    start_day -= 30
+                    start_month += 1
+                start_hour = (start_time % 1440) // 60
+                start_min = (start_time % 1440) % 60
+                end_day = end_time // 1440 + 28
+                if end_day >= 31:
+                    end_day -= 30      
+                    end_month += 1
+                end_hour = (end_time % 1440) // 60
+                end_min = (end_time % 1440) % 60
+                
+                f.write(f"{ship_no},{port_no},{start_month}/{start_day:02d} {start_hour:02d}:{start_min:02d},{end_month}/{end_day:02d} {end_hour:02d}:{end_min:02d}\n")
     
 
 # Define water_level changes
-amplitude = 5
+amplitude = 2
 period = 1440
 
 # Call the main function
