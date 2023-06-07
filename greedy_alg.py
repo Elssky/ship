@@ -17,6 +17,9 @@ class Ship:
         self.stay_time = stay_time
         self.width = width
         self.draft = draft
+        self.priority = 0
+        self.start_time = 0
+        self.end_time = 0
 
 # Define the data structure of the port
 class Port:
@@ -24,7 +27,8 @@ class Port:
         self.No = No
         self.width = width
         self.water_depth = water_depth
-        self.available_time = 0
+        self.not_available_time_start = sys.maxsize
+        self.not_available_time_end = 0
 
 
 
@@ -38,11 +42,28 @@ def calculate_waiting_time(ship, port):
     # water_level = port.water_depth + amplitude * math.sin(2 * math.pi * time / period)
     # If the ship can dock at the port immediately, return 0
     waiting_time = 0
-    if port.width >= ship.width and port.water_depth >= ship.draft:   
+    if port.width >= ship.width and port.water_depth + amplitude * 0.8 >= ship.draft:   
         # Calculate the time when the ship can start to dock
-        start_time = max(ship.arrival_time, port.available_time) 
+        if ship.arrival_time + ship.stay_time < port.not_available_time_start:
+            start_time = ship.arrival_time
+            while(f(start_time) < ship.draft - port.water_depth):
+                start_time += 30
+                waiting_time += 30
+            end_time = start_time + ship.stay_time
+            while(f(end_time) < ship.draft - port.water_depth):
+                end_time += 30
+                waiting_time += 30
+            if end_time < port.not_available_time_start:
+                port.not_available_time_start = min(port.not_available_time_start, start_time)
+                port.not_available_time_end = max(port.not_available_time_end, end_time)
+                ship.start_time = start_time
+                ship.end_time = end_time
+                return start_time, end_time,  waiting_time
+
+        start_time = max(ship.arrival_time, port.not_available_time_end) 
         while(f(start_time) < ship.draft - port.water_depth):
             start_time += 30
+            waiting_time += 30
             # change_depth = ship.draft - port.water_depth
             # reg_change_depth = change_depth / amplitude
             # time = math.asin(reg_change_depth) * period / (2 * math.pi)
@@ -52,38 +73,88 @@ def calculate_waiting_time(ship, port):
         end_time = start_time + ship.stay_time
         while(f(end_time) < ship.draft - port.water_depth):
             end_time += 30
-            waiting_time += 30
+            waiting_time += 30 
+
         # Update the available time of the port
-        port.available_time = end_time
+        port.not_available_time_start = min(port.not_available_time_start, start_time)
+        port.not_available_time_end = max(port.not_available_time_end, end_time)
+        ship.start_time = start_time
+        ship.end_time = end_time
+            
         # Return the waiting time
         return start_time, end_time, start_time - ship.arrival_time + waiting_time
     else:
         return float('inf')
 
-def is_waterlevel_satisfy(ship, port):
+    # Define a function to pre_calculate the waiting time of a ship at a port
+    # Not change port.available_time
+def pre_calculate_waiting_time(ship, port):
+    # Calculate the water level of the port at the time the ship arrives
+    # water_level = port.water_depth + amplitude * math.sin(2 * math.pi * time / period)
+    # If the ship can dock at the port immediately, return 0
+    waiting_time = 0
+    if port.width >= ship.width and port.water_depth + amplitude * 0.8 >= ship.draft:   
+        # Calculate the time when the ship can start to dock
+        if ship.arrival_time + ship.stay_time < port.not_available_time_start:
+            start_time = ship.arrival_time
+            while(f(start_time) < ship.draft - port.water_depth):
+                start_time += 30
+                waiting_time += 30
+            end_time = start_time + ship.stay_time
+            while(f(end_time) < ship.draft - port.water_depth):
+                end_time += 30
+                waiting_time += 30
+            if end_time < port.not_available_time_start:
+                return waiting_time
 
-    # Calculate the time when the ship can start to dock
-    start_time = max(ship.arrival_time, port.available_time)
-    # Calculate the time when the ship can leave the port
-    end_time = start_time + ship.stay_time
-    # Return the waiting time
-    res = minimize_scalar(f, bounds=(start_time, end_time), method='bounded')
-    if port.water_depth + res.fun >= ship.draft:
-        return True
+        start_time = max(ship.arrival_time, port.not_available_time_end) 
+        waiting_time += start_time - ship.arrival_time
+        while(f(start_time) < ship.draft - port.water_depth):
+            start_time += 30
+            waiting_time += 30
+            # change_depth = ship.draft - port.water_depth
+            # reg_change_depth = change_depth / amplitude
+            # time = math.asin(reg_change_depth) * period / (2 * math.pi)
+            # start_time = 1
+
+        # Calculate the time when the ship can leave the port
+        end_time = start_time + ship.stay_time
+        while(f(end_time) < ship.draft - port.water_depth):
+            end_time += 30
+            # waiting_time += 30 
+        # Return the waiting time
+        return waiting_time
     else:
-        return False
+        return float('inf')
+
+# def is_waterlevel_satisfy(ship, port):
+
+#     # Calculate the time when the ship can start to dock
+#     start_time = max(ship.arrival_time, port.available_time)
+#     # Calculate the time when the ship can leave the port
+#     end_time = start_time + ship.stay_time
+#     # Return the waiting time
+#     res = minimize_scalar(f, bounds=(start_time, end_time), method='bounded')
+#     if port.water_depth + res.fun >= ship.draft:
+#         return True
+#     else:
+#         return False
 
 # Define the main function to schedule the ships
-def schedule_ships(ports, ships):
+def schedule_ships(ports, ships, algo):
     # Alg1: Sort the ships by their arrival time
-    # ships.sort(key=lambda x: x.arrival_time)
+      
+    if algo == 1:
+        ships.sort(key=lambda x: x.arrival_time)
     # Alg2: Sort the ships by their stay time
-    # ships.sort(key=lambda x: x.stay_time)
+    elif algo == 2:
+        ships.sort(key=lambda x: x.stay_time)
     # Alg3: Sort the ships by their draft
-    # ships.sort(key=lambda x: x.draft, reverse=True)
-    
+    elif algo == 3:
+        ships.sort(key=lambda x: x.draft, reverse=True)
     # Alg4: Sort the ships by their width
-    ships.sort(key=lambda x: x.width, reverse=True)
+    elif algo == 4:
+        ships.sort(key=lambda x: x.width, reverse=True)
     # Initialize the waiting time and the total waiting time
     my_waiting_time = [0] * len(ships)
     my_total_waiting_time = 0
@@ -92,19 +163,21 @@ def schedule_ships(ports, ships):
     # total_end_time = 0
     # Repeated calls require initialization ports
     for port in ports:
-        port.available_time = 0
-
+        port.not_available_time_start = sys.maxsize
+        port.not_available_time_end = 0
     # Initialize the schedule dictionary
     schedule = {port.No: [] for port in ports}
     # Iterate through the ships
     for i, ship in enumerate(ships):
         # Find the first available port that the ship can dock at
         # available_ports = [port for port in ports if port.available_time <= ship.arrival_time]
-        available_ports = [port for port in ports if port.width >= ship.width and port.water_depth >= ship.draft]
+        available_ports = [port for port in ports if port.width >= ship.width and port.water_depth + amplitude * 0.8 >= ship.draft]
         # available_ports = [port for port in available_ports if is_waterlevel_satisfy(ship, port)]
         if available_ports:
             # Choose the port with the smallest waiting time
-            chosen_port = min(available_ports, key=lambda x: x.available_time)
+            # chosen_port = min(available_ports, key=lambda x: x.available_time)
+            chosen_port = min(available_ports, key=lambda x: pre_calculate_waiting_time(ship, x))
+            
             # Calculate the waiting time of the ship
             start_time, end_time, my_waiting_time[i] = calculate_waiting_time(ship, chosen_port)
             # total_start_time = min(start_time, total_start_time)
@@ -226,18 +299,18 @@ Berth_utilization = 1.2
 def main():
 
     # 人工数据集
-    ports = read_ports('ports10.txt')
-    ships = read_ships('ships34.txt')
+    # ports = read_ports('ports10.txt')
+    # ships = read_ships('ships34.txt')
     #实际数据集
-    # ports = read_ports('real_port.txt')
-    # ships = read_ships('real_ship.txt')   
+    ports = read_ports('real_port.txt')
+    ships = read_ships('real_ship.txt')   
 
     start_time = time.time() # Record the start time
     # print_ships(ships)
     # Schedule the ships and get the waiting time and the total waiting time
     # waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships_by_staytime(ports, ships, 50)
     
-    waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships(ports, ships)
+    waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships(ports, ships, 1)
     # draw_waiting_time(ports, ships, waiting_time)
     # Print the waiting time and the total waiting time
     # print("Waiting time:", waiting_time)
@@ -266,6 +339,15 @@ def main():
     ships.sort(key=lambda x: x.arrival_time)
     draw_schedule(initial_depths, schedule,  amplitude, period, ships, ports)
 
+    final_time =  0
+    for ship in ships:
+        final_time += ship.start_time - ship.arrival_time
+        if (ship.end_time - ship.start_time != ship.stay_time):
+            print(ship.No)
+            print(ship.end_time - ship.start_time - ship.stay_time) 
+    # print(f"final_time:{final_time}" )
+
+
     # Iterate through the schedule dictionary and write the result to a text file
     with open('schedule_result.txt', 'w') as f:
         # f.write("船舶编号, 泊位, 靠泊时间, 离港时间\n")
@@ -292,13 +374,14 @@ def main():
 
 # Define water_level changes
 amplitude = 2
-period = 1440
+period = 720
 
 # Call the main function
 if __name__ == '__main__':
     
     
     main()   
+
    
 
 

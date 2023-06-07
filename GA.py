@@ -14,6 +14,8 @@ import concurrent.futures
 import itertools
 import pickle
 import sys
+import matplotlib
+matplotlib.rc("font", family='simsun')
 
 # Define the data structure of the ship
 class Ship:
@@ -24,6 +26,8 @@ class Ship:
         self.width = width
         self.draft = draft
         self.priority = 0
+        self.start_time = 0
+        self.end_time = 0
 
 # Define the data structure of the port
 class Port:
@@ -82,6 +86,7 @@ def calculate_waiting_time(ships_in, port):
             # if ship_start_time > 100000:
             #     print("here")
             ship_start_time += 30
+        ship.start_time = ship_start_time
         total_waiting_time += waiting_time
         previous_departure_time = ship_start_time + ship.stay_time
         while(f(previous_departure_time) < ship.draft - port.water_depth):
@@ -89,6 +94,7 @@ def calculate_waiting_time(ships_in, port):
             #     print("there")
             previous_departure_time += 30
             total_waiting_time += 30
+        ship.end_time = previous_departure_time
         # working_time += start_time - previous_departure_time
     return total_waiting_time, working_time
 
@@ -187,7 +193,7 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
         if(fitness_function(population[0]) == record_time):
             end_flag += 1
             if(end_flag == 100):
-                return record_time
+                return population[0]
         else:
             end_flag = 0
 
@@ -264,21 +270,21 @@ def read_ports(file_path):
 
 # 人工数据集
 # ports = read_ports('ports10.txt')
-# ships = read_ships('ships34.txt')
+# ships = read_ships('ships88.txt')
 #实际数据集
 ports = read_ports('real_port.txt')
 ships = read_ships('real_ship.txt') 
 
 # Define water_level changes
 amplitude = 2
-period = 1440
+period = 720
 
 if __name__ == '__main__':
     
     schedule = []
     start_time = time.time() # Record the start time
     # Run the genetic algorithm
-    solution = genetic_algorithm(10000, 0.04, 100, ships, ports)
+    solution = genetic_algorithm(2000, 0.04, 100, ships, ports)
 
     end_time = time.time() # Record the end time
     elapsed_time = end_time - start_time # Calculate the elapsed time
@@ -298,7 +304,7 @@ if __name__ == '__main__':
     #         schedule[chosen_port.No].append([ship.No, start_time, end_time])
     #         my_total_working_time += end_time - ship.arrival_time
     print(solution)
-    sorted_ships = [x for _, x in sorted(zip(solution[0], ships), key=lambda x: x[0])]
+    # sorted_ships = [x for _, x in sorted(zip(solution[0], ships), key=lambda x: x[0])]
     schedule = {port.No: [] for port in ports}
     for i in range(len(solution[1])):
         schedule[solution[1][i]].append([i + 1])
@@ -306,16 +312,11 @@ if __name__ == '__main__':
     for i in schedule.keys():
         for j in range(len(schedule[i])):
             ship = ships[schedule[i][j][0] - 1]
-            port = ports[i - 1]
-            start_time = max(ship.arrival_time, port.available_time)
-                # Calculate the time when the ship can leave the port
-            end_time = start_time + ship.stay_time
-                # Update the available time of the port
-            port.available_time = end_time
-            schedule[i][j].append(start_time)
-            schedule[i][j].append(end_time)
-            if (end_time - start_time != ship.stay_time):
+            schedule[i][j].append(ship.start_time)
+            schedule[i][j].append(ship.end_time)
+            if (ship.end_time - ship.start_time != ship.stay_time):
                 print(ship.No)
+                print(ship.end_time - ship.start_time - ship.stay_time) 
     
     print(schedule)
         
@@ -334,10 +335,10 @@ if __name__ == '__main__':
 
     plt.plot(best_waiting_time_list)
     # plt.ticklabel_format(style='scientific', axis='y', scilimits=(0,0))
-    plt.xlabel('Generation')
-    plt.ylabel('Best Total Waiting Time')
+    plt.xlabel('迭代次数')
+    plt.ylabel('总等待时间（min）')
     # plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
-    # plt.title('Genetic Algorithm Performance')
+    plt.title('n=88')
 
     formatter = ticker.ScalarFormatter(useMathText=True)
     formatter.set_scientific(True) 
@@ -345,6 +346,7 @@ if __name__ == '__main__':
     # formatter.set_format('%1.1f')
     plt.gca().yaxis.set_major_formatter(FormatStrFormatter('%1.1f'))
     plt.gca().yaxis.set_major_formatter(formatter)
+    plt.axhline(y=249341, color='red', linestyle='--')
    
     
 

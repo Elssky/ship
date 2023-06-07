@@ -2,7 +2,7 @@ import random
 from test import sort_list
 import os.path
 from greedy_alg import schedule_ships
-import time
+import sys, time
 import matplotlib.pyplot as plt
 import matplotlib
 from draw import draw_schedule
@@ -10,6 +10,22 @@ import multiprocessing
 import concurrent.futures
 import itertools
 import pickle
+import random
+from test import sort_list
+import os.path
+from greedy_alg import schedule_ships
+import time
+import matplotlib.pyplot as plt
+import matplotlib
+import math
+from matplotlib import ticker
+from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
+from draw import draw_schedule
+import multiprocessing
+import concurrent.futures
+import itertools
+import pickle
+import sys
 
 # Define the data structure of the ship
 class Ship:
@@ -19,6 +35,9 @@ class Ship:
         self.stay_time = stay_time
         self.width = width
         self.draft = draft
+        self.priority = 0
+        self.start_time = 0
+        self.end_time = 0
 
 # Define the data structure of the port
 class Port:
@@ -26,11 +45,12 @@ class Port:
         self.No = No
         self.width = width
         self.water_depth = water_depth
-        self.available_time = 0
+        self.not_available_time_start = sys.maxsize
+        self.not_available_time_end = 0
 
  
 
-best_waiting_time = 0
+best_waiting_time = sys.maxsize
 best_waiting_time_list = []
 
 def fitness_function(individual):
@@ -39,7 +59,7 @@ def fitness_function(individual):
         sorted_ships =  [ships[i - 1] for i in individual]
         # for i in range(len(individual)):
         #     temp_ships.append(ships[individual[i] - 1])
-        waiting_time, total_waiting_time,_, schedule = schedule_ships(ports, sorted_ships)
+        waiting_time, total_waiting_time,_, schedule = schedule_ships(ports, sorted_ships, 0)
         if total_waiting_time < best_waiting_time:
             best_waiting_time = total_waiting_time
         return total_waiting_time
@@ -90,20 +110,20 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
                 individual[i], individual[j] = individual[j], individual[i]
         return individual
 
-    if os.path.isfile('population.pkl'):
-        with open('population.pkl', 'rb') as f:
-            population = pickle.load(f)
-    else:
+    # if os.path.isfile('population.pkl'):
+    #     with open('population.pkl', 'rb') as f:
+    #         population = pickle.load(f)
+    # else:
     # Initialize the population
-        population = []    
-        for i in range(population_size):
-            individual = list(range(1, len(ships) + 1)) 
-            random.shuffle(individual)
-            # individual = sort_list(individual)
-            # print(fitness_function(individual))
-            population.append(individual)
-        with open('population.pkl', 'wb') as f:
-            pickle.dump(population, f)
+    population = []    
+    for i in range(population_size):
+        individual = list(range(1, len(ships) + 1)) 
+        random.shuffle(individual)
+        # individual = sort_list(individual)
+        # print(fitness_function(individual))
+        population.append(individual)
+    # with open('population.pkl', 'wb') as f:
+    #     pickle.dump(population, f)
 
     # Evolution
     end_flag = 0
@@ -128,8 +148,8 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
         
         if(fitness_function(population[0]) == record_time):
             end_flag += 1
-            if(end_flag == 50):
-                return record_time
+            if(end_flag == 100):
+                return population[0]
         else:
             end_flag = 0
 
@@ -168,22 +188,22 @@ def genetic_algorithm(population_size, mutation_rate, max_generations, ships, po
 
     best_individual = population[0]
 
-    # Save the corresponding schedule
-    temp_ships = []
-    for i in range(len(best_individual)):
-        temp_ships.append(ships[best_individual[i] - 1])
-    _, _, _, best_schedule = schedule_ships(ports, temp_ships)
+    # # Save the corresponding schedule
+    # temp_ships = []
+    # for i in range(len(best_individual)):
+    #     temp_ships.append(ships[best_individual[i] - 1])
+    # _, _, _, best_schedule = schedule_ships(ports, temp_ships, 0)
     
-    time = 0
-    # print(type(best_schedule))
-    for i, value in best_schedule.items():
-        port_schedule = value
-        # print(f"Port {i}:")
-        best_permutation, min_waiting_time = calculate_waiting_time_in_one_port(port_schedule, ships)
-        # print(f"Best permutation: {best_permutation}")
-        time += min_waiting_time
-        # print(f"Minimum waiting time: {min_waiting_time}")
-    print(f"waiting time: {time}")
+    # time = 0
+    # # print(type(best_schedule))
+    # for i, value in best_schedule.items():
+    #     port_schedule = value
+    #     # print(f"Port {i}:")
+    #     best_permutation, min_waiting_time = calculate_waiting_time_in_one_port(port_schedule, ships)
+    #     # print(f"Best permutation: {best_permutation}")
+    #     time += min_waiting_time
+    #     # print(f"Minimum waiting time: {min_waiting_time}")
+    # print(f"waiting time: {time}")
 
     return population[0]
 
@@ -213,7 +233,7 @@ def read_ships(file_path):
     with open(file_path, 'r') as f:
         for line in f:
             ship_info = line.strip().split(',')
-            ship = Ship(int(ship_info[0]), int(ship_info[1]), int(ship_info[2]), int(ship_info[3]), int(ship_info[4]))
+            ship = Ship(int(ship_info[0]), int(ship_info[1]), int(ship_info[2]), float(ship_info[3]), float(ship_info[4]))
             ships.append(ship)
     return ships
 
@@ -222,7 +242,7 @@ def read_ports(file_path):
     with open(file_path, 'r') as f:
         for line in f:
             port_info = line.strip().split(',')
-            port = Port(int(port_info[0]), int(port_info[1]), int(port_info[2]))
+            port = Port(int(port_info[0]), float(port_info[1]), float(port_info[2]))
             ports.append(port)
     return ports
 
@@ -231,27 +251,32 @@ def read_ports(file_path):
 # ships = [Ship(1, 10, 5, 20, 5), Ship(2, 20, 3, 15, 4), Ship(3, 30, 4, 18, 6)]
 # ports = [Port(1, 30, 10), Port(2, 25, 8), Port(3, 20, 6)]
 
-ports = read_ports('ports10.txt')
-ships = read_ships('ships45.txt')
+# 人工数据集
+# ports = read_ports('ports10.txt')
+# ships = read_ships('ships88.txt')
+#实际数据集
+ports = read_ports('real_port.txt')
+ships = read_ships('real_ship.txt') 
 
 if __name__ == '__main__':
     
 
     start_time = time.time() # Record the start time
     # Run the genetic algorithm
-    solution = genetic_algorithm(20, 0.04, 100, ships, ports)
+    solution = genetic_algorithm(100, 0.04, 100, ships, ports)
     solution_ships = []
     for i in range(len(solution)):
         solution_ships.append(ships[solution[i] - 1])
 
-    waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships(ports, solution_ships)
+    waiting_time, total_waiting_time, total_working_time, schedule = schedule_ships(ports, solution_ships, 0)
+    print(schedule)
     print(f"total_waiting_time:{total_waiting_time}" )
     print(f"total_working_time:{total_working_time}" )
 
     initial_depths = [port.water_depth for port in ports]
 
     # Define water_level changes
-    amplitude = 5
+    amplitude = 2
     period = 1440
 
 
@@ -264,14 +289,28 @@ if __name__ == '__main__':
 
     draw_schedule(initial_depths, schedule,  amplitude, period, ships, ports)
 
-    matplotlib.use('Agg')
+
+    plt.rcParams['font.size'] = 16
+    
 
     plt.plot(best_waiting_time_list)
+    # plt.ticklabel_format(style='scientific', axis='y', scilimits=(0,0))
     plt.xlabel('Generation')
     plt.ylabel('Best Total Waiting Time')
-    plt.title('Genetic Algorithm Performance')
+    # plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
+    # plt.title('Genetic Algorithm Performance')
+
+    formatter = ticker.ScalarFormatter(useMathText=True)
+    formatter.set_scientific(True) 
+    formatter.set_powerlimits((0,0)) 
+    # formatter.set_format('%1.1f')
+    plt.gca().yaxis.set_major_formatter(FormatStrFormatter('%1.1f'))
+    plt.gca().yaxis.set_major_formatter(formatter)
+   
     
-    plt.savefig('best_waiting_time.pdf')
+
+    plt.tight_layout()
+    plt.savefig('best_waiting_time88.svg')
     plt.show()
 
 # # Print the solution

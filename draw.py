@@ -1,7 +1,11 @@
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import math
+
+matplotlib.rc("font", family='simsun')
+matplotlib.rcParams['axes.unicode_minus']=False
 
 def draw_schedule(initial_depths, schedule, amplitude, period, ships, ports):
     # Set the font size to 16
@@ -41,13 +45,13 @@ def draw_schedule(initial_depths, schedule, amplitude, period, ships, ports):
     
     ax.set_yticks(y_ticks)
     
-    ax.set_yticklabels([port.No for port in ports])
+    ax.set_yticklabels([str(port.No) +'/' +str(port.width) for port in ports])
     ax.invert_yaxis()
-    ax.xaxis.grid(True)
-    ax.set_xlabel('Time(mins)', fontsize=font_size)
-    ax.set_ylabel('Port Number', fontsize=font_size)
+    # ax.xaxis.grid(True)
+    ax.set_xlabel('时间(min)', fontsize=font_size)
+    ax.set_ylabel('泊位编号/长度(m)', fontsize=font_size)
     # ax.set_title('Schedule of Ships')
-    ax.set_xlim([0, max_time])
+    ax.set_xticks(range(0, max_time, period * 2))
     average_width = sum([port.width for port in ports]) / len(ports)
     min_width = min([port.width for port in ports])
     # widths = [0.5, 1, 2] # list of widths for each bar
@@ -59,13 +63,13 @@ def draw_schedule(initial_depths, schedule, amplitude, period, ships, ports):
             ship_num = schedule[port.No][j][0]
             barh_width = ships[ship_num - 1].width/ max_interval * 1.8
     
-            ax.barh(y_ticks[i], end_time - start_time, left=start_time, height=barh_width, align='center', color='white', alpha=0.8)
+            ax.barh(y_ticks[i], end_time - start_time, left=start_time, height=barh_width, align='center', color='white', alpha=1)
             ax.vlines(x=start_time, ymin=y_ticks[i]-barh_width/2, ymax=y_ticks[i]+barh_width/2, color='black', linewidth=2)
             ax.vlines(x=end_time, ymin=y_ticks[i]-barh_width/2, ymax=y_ticks[i]+barh_width/2, color='black', linewidth=2)
             ax.axhline(xmin=start_time/max_time, xmax=end_time/max_time, y=y_ticks[i]+barh_width/2, color='black', linewidth=2)
             ax.axhline(xmin=start_time/max_time, xmax=end_time/max_time, y=y_ticks[i]-barh_width/2, color='black', linewidth=2)
             
-            ax.text(start_time + (end_time - start_time)/2, y_ticks[i], ship_num, ha='center', va='center', color='black',  fontsize=font_size)
+            ax.text(start_time + (end_time - start_time)/2, y_ticks[i], '$S_{'+ str(ship_num) +'}$', ha='center', va='center', color='black',  fontsize=12)
         if(i < len(ports) - 1):
             ax.axhline(y= hlines[i] , color='black', linewidth=2, linestyle='--')
 
@@ -79,13 +83,15 @@ def draw_schedule(initial_depths, schedule, amplitude, period, ships, ports):
      # Create a list of water depths for each port over time
     water_depths = [water_depth(depth, time, amplitude, period) for depth in initial_depths]
 
-    plt.imshow(water_depths, extent=[0, max_time+1, y_ticks[-1] + ports[-1].width/2/max_interval * 1.8,y_ticks[0] - ports[0].width/2/max_interval * 1.8], cmap='Blues', aspect='auto')
-    plt.colorbar()
+    im = plt.imshow(water_depths, extent=[0, max_time+1, y_ticks[-1] + ports[-1].width/2/max_interval * 1.8,y_ticks[0] - ports[0].width/2/max_interval * 1.8], cmap='Blues', aspect='auto')
+    cbar = fig.colorbar(im)
+    cbar.set_label('水深变化(m)', fontsize = 16)
+    cbar.ax.tick_params(labelsize=font_size)
     # plt.ylim([y_ticks[0] - ports[0].width/2/max_interval * 1.8, y_ticks[-1] + ports[-1].width/2/max_interval * 1.8])
     plt.xticks(fontsize=font_size)
     plt.yticks(fontsize=font_size)
-    
-    plt.savefig("../schedule.pdf")
+    plt.tight_layout()
+    plt.savefig("../schedule.svg")
     plt.show()
 
 
